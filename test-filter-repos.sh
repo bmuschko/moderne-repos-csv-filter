@@ -205,10 +205,52 @@ EOF
     rm -f filter.csv repos-lock.csv output.csv
 }
 
-# Test 6: Missing filter file
+# Test 6: Skips comment lines in repos-lock.csv
+test_skips_comments() {
+    echo ""
+    echo "--- Test 6: Skips comment lines in repos-lock.csv ---"
+
+    cat > filter.csv << 'EOF'
+cloneUrl,defaultBranch,origin
+https://github.com/org/repo1.git,main,github
+EOF
+
+    # Create repos-lock.csv with comment lines at the top
+    cat > repos-lock.csv << 'EOF'
+# This is a comment
+# Another comment line
+origin,path,branch,cloneUrl,changeset,publishUri,org1,org2,org3,org4,org5,org6,org7,org8
+github,/path/to/repo1,main,https://github.com/org/repo1.git,abc123,http://publish1,o1,o2,o3,o4,o5,o6,o7,o8
+github,/path/to/repo2,main,https://github.com/org/repo2.git,def456,http://publish2,o1,o2,o3,o4,o5,o6,o7,o8
+EOF
+
+    ./filter-repos.sh > /dev/null
+
+    # Verify output has correct header (not comment)
+    local first_line=$(head -1 output.csv)
+    if [[ "$first_line" == "origin,path,branch,cloneUrl"* ]]; then
+        echo -e "${GREEN}PASS${NC}: Output header is correct (not a comment)"
+        ((TESTS_PASSED++))
+    else
+        echo -e "${RED}FAIL${NC}: Output header should be the CSV header, not a comment"
+        echo "  First line: $first_line"
+        ((TESTS_FAILED++))
+    fi
+
+    # Verify comments are not in output
+    assert_file_not_contains output.csv "# This is a comment" "Output should not contain comment lines"
+
+    # Verify correct row count (1 header + 1 matching row)
+    local line_count=$(wc -l < output.csv | xargs)
+    assert_equals "2" "$line_count" "Output should have 2 lines (1 header + 1 matching row)"
+
+    rm -f filter.csv repos-lock.csv output.csv
+}
+
+# Test 7: Missing filter file
 test_missing_filter_file() {
     echo ""
-    echo "--- Test 6: Missing filter file error handling ---"
+    echo "--- Test 7: Missing filter file error handling ---"
 
     cat > repos-lock.csv << 'EOF'
 origin,path,branch,cloneUrl,changeset,publishUri,org1,org2,org3,org4,org5,org6,org7,org8
@@ -228,10 +270,10 @@ EOF
     rm -f repos-lock.csv
 }
 
-# Test 7: Missing repos-lock file
+# Test 8: Missing repos-lock file
 test_missing_repos_file() {
     echo ""
-    echo "--- Test 7: Missing repos-lock file error handling ---"
+    echo "--- Test 8: Missing repos-lock file error handling ---"
 
     cat > filter.csv << 'EOF'
 cloneUrl,defaultBranch,origin
@@ -265,6 +307,7 @@ main() {
     test_all_match
     test_preserves_columns
     test_quoted_values
+    test_skips_comments
     test_missing_filter_file
     test_missing_repos_file
 

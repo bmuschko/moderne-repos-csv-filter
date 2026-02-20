@@ -21,6 +21,7 @@ fi
 # Use awk to perform the filtering efficiently
 # - First, read all cloneUrl values from filter.csv (column 1) into an array
 # - Then, process repos-lock.csv and output rows where cloneUrl (column 4) matches
+# - Skip comment lines (starting with #) in repos-lock.csv
 awk -F',' '
     NR == FNR {
         # Processing filter.csv (first file)
@@ -34,9 +35,14 @@ awk -F',' '
         next
     }
     # Processing repos-lock.csv (second file)
-    FNR == 1 {
-        # Print header
+    /^#/ {
+        # Skip comment lines
+        next
+    }
+    !header_printed {
+        # First non-comment line is the header
         print
+        header_printed = 1
         next
     }
     {
